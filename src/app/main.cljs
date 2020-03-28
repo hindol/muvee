@@ -50,8 +50,7 @@
      (merge {:src poster-url
              :alt "Poster"}
             {:style {:object-fit       "contain"
-                     :width            "100%"
-                     :height           "200px"
+                     :max-height       "200px"
                      :background-image (str "url(\"" poster-url "\")")
                      :background-size  "cover"}}
             props)]))
@@ -96,7 +95,7 @@
 (defn movie-card
   [{:keys [movie filters]}]
   [:div.row.mt-2.mr-2.mb-2.ml-2
-   [poster {:class "col-3"} movie]
+   [poster {:class "col-4 col-sm-3"} movie]
    [:div.col
     [:div.row
      [:div.col
