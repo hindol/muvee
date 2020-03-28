@@ -5,5 +5,5 @@
                       :http-root  "docs"}}
  :dependencies [[cljs-http "0.1.46"]
                 [reagent "0.10.0"]]
- :dev-http     {3000 "public"}
+ :dev-http     {3000 "docs"}
  :source-paths ["src"]}
