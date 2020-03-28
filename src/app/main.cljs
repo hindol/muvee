@@ -43,76 +43,89 @@
          (fetch-favourites (inc page)))))))
 
 (defn poster
-  [props m]
-  [:img.img-fluid.img-thumbnail
-   (merge {:src (str "https://image.tmdb.org/t/p/w200"
-                     (:poster_path m))
-           :alt "Poster"}
-          {:style {:object-fit "contain"
-                   :width      "100%"
-                   :height     "200px"}}
-          props)])
+  [props movie]
+  (let [poster-url (str "https://image.tmdb.org/t/p/w200"
+                        (:poster_path movie))]
+    [:img.img-fluid.img-thumbnail
+     (merge {:src poster-url
+             :alt "Poster"}
+            {:style {:object-fit       "contain"
+                     :width            "100%"
+                     :height           "200px"
+                     :background-image (str "url(\"" poster-url "\")")
+                     :background-size  "cover"}}
+            props)]))
 
 (defn title
-  [m]
-  [:h4 (:title m)
-   (when (not= (:original_language m) "en")
-     [:small.text-muted.ml-2 (str "(" (:original_title m) ")")])])
+  [movie]
+  [:h4 (:title movie)
+   (when (not= (:original_language movie) "en")
+     [:small.text-muted.ml-2 (str "(" (:original_title movie) ")")])])
 
 (defn year
-  [m]
-  [:span.text-muted.mr-2 (.getYear (UtcDateTime/fromIsoString (:release_date m)))])
+  [movie]
+  [:span.text-muted.mr-2
+   (.getYear (UtcDateTime/fromIsoString (:release_date movie)))])
 
 (defn genre
-  [g]
-  [:a {:class    (when (@db/filters g) "text-muted")
+  [{:keys [genre-id filters]}]
+  [:a {:class    (when (contains? filters genre-id) "text-muted")
        :href     "#"
-       :on-click #(swap! db/filters conj g)}
-   (@db/genres g)])
+       :on-click #(swap! db/filters conj genre-id)}
+   (get @db/genres genre-id)])
 
-(defn genres
-  [m]
+(defn genre-list
+  [{:keys [genre-ids filters]}]
   (when-not (empty? @db/genres)
     [:span.ml-2
      (doall
-      (interpose ", " (for [g (:genre_ids m)]
+      (interpose ", " (for [g genre-ids]
                         ^{:key g}
-                        [genre g])))]))
+                        [genre {:genre-id g
+                                :filters  filters}])))
+     (when-not (empty? filters)
+       [:a.ml-2.text-muted
+        {:href     "#"
+         :on-click #(reset! db/filters #{})}
+        "↻"])]))
 
 (defn overview
-  [m]
-  [:p (:overview m)])
+  [movie]
+  [:p (:overview movie)])
 
-(defn movie
-  [m]
+(defn movie-card
+  [{:keys [movie filters]}]
   [:div.row.mt-2.mr-2.mb-2.ml-2
-   [poster {:class "col-3"} m]
+   [poster {:class "col-3"} movie]
    [:div.col
     [:div.row
      [:div.col
-      [title m]]]
+      [title movie]]]
     [:div.row
      [:div.col
-      [:p [year m] "•" [genres m]]]]
+      [:p [year movie] "•" [genre-list {:genre-ids (:genre_ids movie)
+                                        :filters   filters}]]]]
     [:div.row
      [:div.col
-      [overview m]]]]])
+      [overview movie]]]]])
 
-(defn movies
-  []
+(defn movie-list
+  [{:keys [movies filters]}]
   [:div.row
    [:div.col
     (doall
-     (for [f     @db/favourites
-           :when (or (empty? @db/filters)
-                     (every? (set (:genre_ids f)) @db/filters))]
-       ^{:key (:id f)}
-       [movie f]))]])
+     (for [m     movies
+           :when (or (empty? filters)
+                     (every? (set (:genre_ids m)) filters))]
+       ^{:key (:id m)}
+       [movie-card {:movie   m
+                    :filters filters}]))]])
 
 (defn app
   []
   [:div.container-lg.pt-2.pb-2
-   [movies]])
+   [movie-list {:movies  @db/favourites
+                :filters @db/filters}]])
 
 (defn ^:dev/after-load start
   []
