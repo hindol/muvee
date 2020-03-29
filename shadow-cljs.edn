@@ -4,6 +4,7 @@
                       :target     :browser
                       :http-root  "docs"}}
  :dependencies [[cljs-http "0.1.46"]
-                [reagent "0.10.0"]]
+                [reagent "0.10.0"]
+                [re-frame "0.12.0"]]
  :dev-http     {3000 "docs"}
  :source-paths ["src"]}
