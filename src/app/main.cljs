@@ -5,6 +5,7 @@
    [app.db :as db]
    [cljs-http.client :as http]
    [cljs.core.async :refer [<!]]
+   [reagent.core :as r]
    [reagent.dom :as rdom])
   (:import
    [goog.date UtcDateTime]))
@@ -27,6 +28,18 @@
       (swap! db/genres into (map (juxt :id :name)
                                  (get-in response [:body :genres]))))))
 
+(defn fetch-director
+  [{:keys [movie-id on-success]}]
+  (go
+    (let [response (<! (http/get (str "https://api.themoviedb.org/3/movie/"
+                                      movie-id
+                                      "/credits")
+                                 {:with-credentials? false
+                                  :query-params      {:api_key *v3-access-token*}}))
+          crew     (get-in response [:body :crew])
+          director (first (filter #(-> % :job (= "Director")) crew))]
+      (on-success director))))
+
 (defn fetch-favourites
   ([] (fetch-favourites 1))
   ([page]
@@ -40,20 +53,18 @@
                                    :oauth-token       *v4-access-token*}))]
        (swap! db/favourites into (get-in response [:body :results]))
        (when (< page (get-in response [:body :total_pages]))
-         (fetch-favourites (inc page)))))))
+         (fetch-favourites (inc page))
+         (swap! db/favourites shuffle))))))
 
 (defn poster
-  [props movie]
-  (let [poster-url (str "https://image.tmdb.org/t/p/w200"
-                        (:poster_path movie))]
-    [:img.img-fluid.img-thumbnail
-     (merge {:src poster-url
-             :alt "Poster"}
-            {:style {:object-fit       "contain"
-                     :max-height       "200px"
-                     :background-image (str "url(\"" poster-url "\")")
-                     :background-size  "cover"}}
-            props)]))
+  [movie]
+  (when (:poster_path movie)
+    (let [poster-url (str "https://image.tmdb.org/t/p/w200"
+                          (:poster_path movie))]
+      [:img.img-fluid.img-thumbnail
+       {:src   poster-url
+        :alt   "Poster"
+        :style {:object-fit "contain"}}])))
 
 (defn title
   [movie]
@@ -65,6 +76,15 @@
   [movie]
   [:span.text-muted.mr-2
    (.getYear (UtcDateTime/fromIsoString (:release_date movie)))])
+
+(defn director
+  [movie]
+  (let [director (r/atom nil)]
+    (fetch-director {:movie-id   (:id movie)
+                     :on-success #(reset! director %)})
+    (fn []
+      (when @director
+        [:span.text-muted.ml-2.mr-2 (:name @director)]))))
 
 (defn genre
   [{:keys [genre-id filters]}]
@@ -95,15 +115,19 @@
 (defn movie-card
   [{:keys [movie filters]}]
   [:div.row.mt-2.mr-2.mb-2.ml-2
-   [poster {:class "col-4 col-sm-3"} movie]
+   [:div.col-4.col-sm-3
+    [poster movie]]
    [:div.col
     [:div.row
      [:div.col
       [title movie]]]
     [:div.row
      [:div.col
-      [:p [year movie] "•" [genre-list {:genre-ids (:genre_ids movie)
-                                        :filters   filters}]]]]
+      [:p
+       [year movie] "•"
+       [director movie] "•"
+       [genre-list {:genre-ids (:genre_ids movie)
+                    :filters   filters}]]]]
     [:div.row
      [:div.col
       [overview movie]]]]])
