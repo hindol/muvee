@@ -41,8 +41,9 @@
       (on-success director))))
 
 (defn fetch-favourites
-  ([] (fetch-favourites 1))
-  ([page]
+  ([props] (fetch-favourites props 1))
+  ([{:keys [on-success]
+     :as   props} page]
    (go
      (let [response (<! (http/get (str "https://api.themoviedb.org/4/account/"
                                        *account-id*
@@ -51,10 +52,13 @@
                                    :query-params      {:page    page
                                                        :sort_by "release_date.desc"}
                                    :oauth-token       *v4-access-token*}))]
-       (swap! db/favourites into (get-in response [:body :results]))
+       (on-success (get-in response [:body :results]))
        (when (< page (get-in response [:body :total_pages]))
-         (fetch-favourites (inc page))
-         (swap! db/favourites shuffle))))))
+         (fetch-favourites props (inc page)))))))
+
+(defn info
+  [text]
+  [:div.alert.alert-info {:role "alert"} text])
 
 (defn poster
   [movie]
@@ -87,25 +91,26 @@
         [:span.text-muted.ml-2.mr-2 (:name @director)]))))
 
 (defn genre
-  [{:keys [genre-id filters]}]
+  [{:keys [genre-id filters on-genre-filter]}]
   [:a {:class    (when (contains? filters genre-id) "text-muted")
        :href     "#"
-       :on-click #(swap! db/filters conj genre-id)}
+       :on-click #(on-genre-filter genre-id)}
    (get @db/genres genre-id)])
 
 (defn genre-list
-  [{:keys [genre-ids filters]}]
+  [{:keys [genre-ids filters on-genre-filter on-reset-filter]}]
   (when-not (empty? @db/genres)
     [:span.ml-2
      (doall
       (interpose ", " (for [g genre-ids]
                         ^{:key g}
-                        [genre {:genre-id g
-                                :filters  filters}])))
+                        [genre {:genre-id        g
+                                :filters         filters
+                                :on-genre-filter on-genre-filter}])))
      (when-not (empty? filters)
        [:a.ml-2.text-muted
         {:href     "#"
-         :on-click #(reset! db/filters #{})}
+         :on-click on-reset-filter}
         "↻"])]))
 
 (defn overview
@@ -113,7 +118,7 @@
   [:p (:overview movie)])
 
 (defn movie-card
-  [{:keys [movie filters]}]
+  [{:keys [movie filters on-genre-filter on-reset-filter]}]
   [:div.row.mt-2.mr-2.mb-2.ml-2
    [:div.col-4.col-sm-3
     [poster movie]]
@@ -126,35 +131,50 @@
       [:p
        [year movie] "•"
        [director movie] "•"
-       [genre-list {:genre-ids (:genre_ids movie)
-                    :filters   filters}]]]]
+       [genre-list {:genre-ids       (:genre_ids movie)
+                    :filters         filters
+                    :on-genre-filter on-genre-filter
+                    :on-reset-filter on-reset-filter}]]]]
     [:div.row
      [:div.col
       [overview movie]]]]])
 
+(defn movie-jumbotron
+  [props]
+  [:div.jumbotron
+   [movie-card props]])
+
 (defn movie-list
-  [{:keys [movies filters]}]
-  [:div.row
-   [:div.col
-    (doall
-     (for [m     movies
-           :when (or (empty? filters)
-                     (every? (set (:genre_ids m)) filters))]
-       ^{:key (:id m)}
-       [movie-card {:movie   m
-                    :filters filters}]))]])
+  []
+  (let [favourites (r/atom [])
+        filters    (r/atom #{})]
+    (fetch-favourites {:on-success #(swap! favourites into %)})
+    (fn []
+      (when (seq @favourites)
+        (let [r (rand-nth @favourites)]
+          [:div.row
+           [:div.col
+            (doall
+             (cons ^{:key (:id r)} [movie-jumbotron {:movie   r
+                                                     :filters @filters}]
+                   (for [m     (remove #{r} @favourites)
+                         :when (or (empty? @filters)
+                                   (every? (set (:genre_ids m)) @filters))]
+                     ^{:key (:id m)}
+                     [movie-card {:movie           m
+                                  :filters         @filters
+                                  :on-genre-filter #(swap! filters conj %)
+                                  :on-reset-filter #(reset! filters #{})}])))]])))))
 
 (defn app
   []
   [:div.container-lg.pt-2.pb-2
-   [movie-list {:movies  @db/favourites
-                :filters @db/filters}]])
+   [info "Click on a genre to restrict to that genre. Click on multiple genres to filter further."]
+   [movie-list]])
 
 (defn ^:dev/after-load start
   []
   (rdom/render [app] (.getElementById js/document "app"))
-  (when (empty? @db/favourites)
-    (fetch-favourites))
   (when (empty? @db/genres)
     (fetch-genres)))
 

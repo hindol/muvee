@@ -4,9 +4,3 @@
 
 (def genres
   (r/atom {}))
-
-(def favourites
-  (r/atom []))
-
-(def filters
-  (r/atom #{}))
