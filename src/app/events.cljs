@@ -29,10 +29,12 @@
  (fn [db [_ genres]]
    (assoc db :genres (zipmap (map :id genres) genres))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :favourite-movies-fetched
- (fn [db [_ page]]
-   (update db :favourite-movies into page)))
+ (fn [{:keys [db]} [_ page]]
+   {:db (update db :favourite-movies merge (zipmap (map :id page) page))
+    :dispatch-n (for [m page]
+                  [:fetch-director (:id m)])}))
 
 (rf/reg-event-db
  :director-fetched

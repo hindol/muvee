@@ -35,8 +35,7 @@
                                    :query-params      {:page    page
                                                        :sort_by "release_date.desc"}
                                    :oauth-token       *v4-access-token*}))]
-       (rf/dispatch [:favourite-movies-fetched (map (juxt :id identity)
-                                                    (get-in response [:body :results]))])
+       (rf/dispatch [:favourite-movies-fetched (get-in response [:body :results])])
        (when (< page (get-in response [:body :total_pages]))
          (rf/dispatch [:fetch-favourite-movies {:page (inc page)}]))))))
 

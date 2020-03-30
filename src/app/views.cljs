@@ -32,10 +32,8 @@
 (defn director
   [movie]
   (let [director (rf/subscribe [:director (:id movie)])]
-    (rf/dispatch [:fetch-director (:id movie)])
-    (fn []
-      (when @director
-        [:span.text-muted.ml-2.mr-2 (:name @director)]))))
+    (when @director
+      [:span.text-muted.ml-2.mr-2 (:name @director)])))
 
 (defn genre
   [genre-id]
