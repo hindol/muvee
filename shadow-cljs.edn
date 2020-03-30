@@ -1,5 +1,5 @@
 {:builds       {:app {:asset-path "/js"
-                      :modules    {:main {:init-fn app.main/init}}
+                      :modules    {:main {:init-fn app.core/init}}
                       :output-dir "docs/js"
                       :target     :browser
                       :http-root  "docs"}}
