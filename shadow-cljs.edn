@@ -1,8 +1,9 @@
 {:builds       {:app {:asset-path "/js"
                       :modules    {:main {:init-fn app.core/init}}
-                      :output-dir "docs/js"
+                      :output-dir "public/js"
                       :target     :browser
-                      :http-root  "docs"}}
+                      :http-root  "public"
+                      :release {:output-dir "docs/js"}}}
  :dependencies [[cljs-http "0.1.46"]
                 [reagent "0.10.0"]
                 [re-frame "0.12.0"]]

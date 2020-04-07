@@ -16,28 +16,17 @@
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE1ODUzNzA1MDAsInN1YiI6IjUyZWM5N2NkNzYwZWUzMzNkZjAxMTYzNiIsImp0aSI6IjE5MzQ2OTMiLCJhdWQiOiJkMmE0ZjZmM2UwNzQ2ZTY1ZGQ2NDFiMWE1YjQwNTgwYyIsInNjb3BlcyI6WyJhcGlfcmVhZCIsImFwaV93cml0ZSJdLCJ2ZXJzaW9uIjoxfQ.wGwxKwsRHARd1fxB4Yndu-ct0KmBTj07y4h3w1rtLWo")
 
 (rf/reg-fx
- :fetch-genres
- (fn [_]
+ :http
+ (fn [{:keys [url method opts on-success on-failure]}]
    (go
-     (let [response (<! (http/get "https://api.themoviedb.org/3/genre/movie/list"
-                                  {:with-credentials? false
-                                   :query-params      {:api_key *v3-access-token*}}))]
-       (rf/dispatch [:genres-fetched (get-in response [:body :genres])])))))
-
-(rf/reg-fx
- :fetch-favourite-movies
- (fn [{:keys [page]}]
-   (go
-     (let [response (<! (http/get (str "https://api.themoviedb.org/4/account/"
-                                       *account-id*
-                                       "/movie/favorites")
-                                  {:with-credentials? false
-                                   :query-params      {:page    page
-                                                       :sort_by "release_date.desc"}
-                                   :oauth-token       *v4-access-token*}))]
-       (rf/dispatch [:favourite-movies-fetched (get-in response [:body :results])])
-       (when (< page (get-in response [:body :total_pages]))
-         (rf/dispatch [:fetch-favourite-movies {:page (inc page)}]))))))
+     (let [http-fn (case method
+                     :post http/post :get http/get
+                     :put http/put :delete http/delete)
+           response     (<! (http-fn url opts))
+           {:keys [success body]} response]
+       (if success
+         (rf/dispatch (conj on-success body))
+         (rf/dispatch (conj on-failure body)))))))
 
 (rf/reg-fx
  :fetch-director
